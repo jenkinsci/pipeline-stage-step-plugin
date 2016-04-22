@@ -287,9 +287,11 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
          */
         void unblock(String message) {
             assert Thread.holdsLock(StageStepExecution.class);
-            assert waitingContext != null;
-            assert waitingBuild != null;
-            assert !holding.contains(waitingBuild);
+            assert waitingContext != null : message;
+            assert waitingBuild != null : message;
+            if (holding.contains(waitingBuild)) {
+                LOGGER.log(WARNING, "{0}: {1} already in {2}", new Object[] {message, waitingBuild, holding});
+            }
             /* Not necessarily true, since a later build could reduce the concurrency of an existing stage; could perhaps adjust semantics to skip unblocking in this special case:
             assert concurrency == null || holding.size() < concurrency;
             */
