@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.workflow.support.steps;
 
 import com.google.inject.Inject;
+import hudson.AbortException;
 import hudson.Extension;
 import hudson.XmlFile;
 import hudson.model.InvisibleAction;
@@ -12,6 +13,7 @@ import hudson.model.listeners.RunListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -26,12 +28,16 @@ import jenkins.model.CauseOfInterruption;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.actions.LabelAction;
 import org.jenkinsci.plugins.workflow.actions.StageAction;
+import org.jenkinsci.plugins.workflow.actions.ThreadNameAction;
 import org.jenkinsci.plugins.workflow.flow.FlowExecutionOwner;
+import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
+import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
+import org.jenkinsci.plugins.workflow.support.steps.stage.Messages;
 
 public class StageStepExecution extends AbstractStepExecutionImpl {
     private static final Logger LOGGER = Logger.getLogger(StageStepExecution.class.getName());
@@ -54,10 +60,32 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
     @Override
     public boolean start() throws Exception {
+        if (isInsideParallel(node)) {
+            throw new AbortException(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a());
+        }
         node.addAction(new LabelAction(step.name));
         node.addAction(new StageActionImpl(step.name));
         enter(run, getContext(), step.name, step.concurrency);
         return false; // execute asynchronously
+    }
+
+    // TODO switch to FlowNodeSerialWalker or equivalent from https://github.com/jenkinsci/workflow-api-plugin/pull/2
+    private static boolean isInsideParallel(FlowNode n) {
+        while (true) {
+            if (n instanceof BlockEndNode) {
+                n = ((BlockEndNode) n).getStartNode();
+            }
+            if (n.getAction(ThreadNameAction.class) != null) {
+                return true;
+            }
+            List<FlowNode> parents = n.getParents();
+            if (parents.isEmpty()) {
+                assert n instanceof FlowStartNode;
+                return false;
+            }
+            assert parents.size() == 1;
+            n = parents.get(0);
+        }
     }
 
     @Override

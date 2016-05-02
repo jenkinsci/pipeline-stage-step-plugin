@@ -32,6 +32,7 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
+import org.jenkinsci.plugins.workflow.support.steps.stage.Messages;
 import org.jenkinsci.plugins.workflow.test.steps.SemaphoreStep;
 import static org.junit.Assert.*;
 import org.junit.Before;
@@ -235,6 +236,22 @@ public class StageStepTest {
                 SemaphoreStep.waitForStart("holdingAfterExitUnblock/2", b2); // b2 unblocked
                 WorkflowRun b3 = p.scheduleBuild2(0).waitForStart();
                 story.j.waitForMessage("Waiting for builds [2]", b3);
+            }
+        });
+    }
+
+    @Test public void notInsideParallel() throws Exception {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("stage 'one'; parallel one: {}, two: {}; stage 'two'"));
+                story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
+                p.setDefinition(new CpsFlowDefinition("parallel one: {stage 'one'}, two: {stage 'two'}"));
+                story.j.assertLogContains(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a(), story.j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
+                p.setDefinition(new CpsFlowDefinition("parallel x: {node {echo 'ok'; dir('subdir') {stage 'oops'}}}"));
+                story.j.assertLogContains(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a(), story.j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
+                p.setDefinition(new CpsFlowDefinition("node {echo 'ok'; stage 'one'}; node {echo 'still ok'; stage 'two'}"));
+                story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
             }
         });
     }
