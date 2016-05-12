@@ -34,6 +34,7 @@ import org.jenkinsci.plugins.workflow.graph.BlockEndNode;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
+import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
@@ -46,7 +47,6 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     @Inject(optional=true) private transient StageStep step;
     @StepContextParameter private transient Run<?,?> run;
     @StepContextParameter private transient FlowNode node;
-    @StepContextParameter private transient TaskListener listener; // picked up by getRequiredContext
 
     private static final class StageActionImpl extends InvisibleAction implements StageAction {
         private final String stageName;
@@ -60,6 +60,14 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
     @Override
     public boolean start() throws Exception {
+        if (getContext().hasBody()) { // recommended mode
+            if (step.concurrency != null) {
+                throw new AbortException(Messages.StageStepExecution_concurrency_not_supported_in_block_mode());
+            }
+            getContext().newBodyInvoker().withCallback(BodyExecutionCallback.wrap(getContext())).withDisplayName(step.name).start();
+            return false;
+        }
+        getContext().get(TaskListener.class).getLogger().println(Messages.StageStepExecution_non_block_mode_deprecated());
         if (isInsideParallel(node)) {
             throw new AbortException(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a());
         }

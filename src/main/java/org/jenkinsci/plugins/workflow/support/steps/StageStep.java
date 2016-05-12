@@ -63,6 +63,10 @@ public final class StageStep extends AbstractStepImpl {
             return "Stage";
         }
 
+        @Override public boolean takesImplicitBlockArgument() {
+            return true;
+        }
+
     }
 
 }
