@@ -53,6 +53,20 @@ public class StageStepTest {
         StageStepExecution.clear();
     }
 
+    @Issue("JENKINS-26107")
+    @Test public void blockMode() throws Exception {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("stage('hello there') {echo 'yes I ran'}", true));
+                WorkflowRun b = story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
+                story.j.assertLogContains("hello there", b);
+                story.j.assertLogContains("yes I ran", b);
+                story.j.assertLogNotContains(Messages.StageStepExecution_non_block_mode_deprecated(), b);
+            }
+        });
+    }
+
     @Test public void basics() throws Exception {
         // Timeline (A has concurrency 2, B 1):
         // #1 o-A--------------B-----------------o
@@ -118,6 +132,7 @@ public class StageStepTest {
                     e2.waitForSuspension();
                     e3.waitForSuspension();
                     story.j.assertBuildStatus(Result.NOT_BUILT, story.j.waitForCompletion(b2));
+                    story.j.assertLogContains(Messages.StageStepExecution_non_block_mode_deprecated(), b2);
                     InterruptedBuildAction iba = b2.getAction(InterruptedBuildAction.class);
                     assertNotNull(iba);
                     List<CauseOfInterruption> causes = iba.getCauses();
@@ -148,6 +163,7 @@ public class StageStepTest {
                     e1.waitForSuspension();
                     assertFalse(b1.isBuilding());
                     assertEquals(Result.SUCCESS, b1.getResult());
+                    story.j.assertLogContains(Messages.StageStepExecution_non_block_mode_deprecated(), b1);
                     e3.waitForSuspension();
                     assertTrue(b3.isBuilding());
                     story.j.assertLogContains("done", b1);
@@ -158,6 +174,7 @@ public class StageStepTest {
                     assertFalse(b3.isBuilding());
                     assertEquals(Result.SUCCESS, b3.getResult());
                     story.j.assertLogContains("done", b3);
+                    story.j.assertLogContains(Messages.StageStepExecution_non_block_mode_deprecated(), b3);
             }
         });
     }
