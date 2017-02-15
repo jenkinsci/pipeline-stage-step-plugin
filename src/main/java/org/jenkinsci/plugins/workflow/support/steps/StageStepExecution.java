@@ -10,6 +10,7 @@ import hudson.model.Result;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
+import hudson.util.XStream2;
 import java.io.File;
 import java.io.IOException;
 import java.util.Iterator;
@@ -107,8 +108,10 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         if (j == null) {
             throw new IOException("Jenkins is not running"); // do not use Jenkins.getActiveInstance() as that is an ISE
         }
-        return new XmlFile(new File(j.getRootDir(), StageStep.class.getName() + ".xml"));
+        return new XmlFile(DEFAULT_XSTREAM, new File(j.getRootDir(), StageStep.class.getName() + ".xml"));
     }
+    /** JENKINS-19561 workaround: keep our own instance, unshared with other {@link XmlFile}s, and guarded by the static monitor in {@link #load} and {@link #save}. */
+    private static final XStream2 DEFAULT_XSTREAM = new XStream2();
 
     // TODO can this be replaced with StepExecutionIterator?
     private static Map<String,Map<String,Stage>> stagesByNameByJob;
