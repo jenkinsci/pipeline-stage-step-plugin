@@ -22,5 +22,5 @@ public abstract class StageListener implements ExtensionPoint {
      *      Any exception/error thrown from this method will be swallowed to prevent broken listeners
      *      from breaking all the builds.
      */
-    public abstract void onEnterred(Run run, String name);
+    public abstract void onEntered(Run run, String name);
 }
