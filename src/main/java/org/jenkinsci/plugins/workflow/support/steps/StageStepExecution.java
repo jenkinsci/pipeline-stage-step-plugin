@@ -74,6 +74,16 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         node.addAction(new LabelAction(step.name));
         node.addAction(new StageActionImpl(step.name));
         enter(run, getContext(), step.name, step.concurrency);
+
+        for (StageListener listener : Jenkins.getActiveInstance().getExtensionList(StageListener.class)) {
+            try {
+                listener.onEnterred(run, step.name);
+            } catch (Throwable e) {
+                LOGGER.log(Level.WARNING, "Stage    Listener failed",e);
+            }
+
+        };
+
         return false; // execute asynchronously
     }
 
