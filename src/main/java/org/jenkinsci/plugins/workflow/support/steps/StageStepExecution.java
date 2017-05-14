@@ -65,6 +65,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
                 throw new AbortException(Messages.StageStepExecution_concurrency_not_supported_in_block_mode());
             }
             getContext().newBodyInvoker().withCallback(BodyExecutionCallback.wrap(getContext())).withDisplayName(step.name).start();
+            fireStageEnteredEvent();
             return false;
         }
         getContext().get(TaskListener.class).getLogger().println(Messages.StageStepExecution_non_block_mode_deprecated());
@@ -74,7 +75,20 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         node.addAction(new LabelAction(step.name));
         node.addAction(new StageActionImpl(step.name));
         enter(run, getContext(), step.name, step.concurrency);
+
+        fireStageEnteredEvent();
         return false; // execute asynchronously
+    }
+
+    private void fireStageEnteredEvent() {
+        for (StageListener listener : Jenkins.getActiveInstance().getExtensionList(StageListener.class)) {
+            try {
+                listener.onEnterred(run, step.name);
+            } catch (Throwable e) {
+                LOGGER.log(Level.WARNING, "Stage    Listener failed",e);
+            }
+
+        }
     }
 
     // TODO switch to FlowNodeSerialWalker or equivalent from https://github.com/jenkinsci/workflow-api-plugin/pull/2
