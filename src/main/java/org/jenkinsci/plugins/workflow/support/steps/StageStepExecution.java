@@ -2,6 +2,7 @@ package org.jenkinsci.plugins.workflow.support.steps;
 
 import com.google.inject.Inject;
 import hudson.AbortException;
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.XmlFile;
 import hudson.model.InvisibleAction;
@@ -35,6 +36,7 @@ import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.graph.FlowStartNode;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
+import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
@@ -64,7 +66,12 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             if (step.concurrency != null) {
                 throw new AbortException(Messages.StageStepExecution_concurrency_not_supported_in_block_mode());
             }
-            getContext().newBodyInvoker().withCallback(BodyExecutionCallback.wrap(getContext())).withDisplayName(step.name).start();
+            getContext().newBodyInvoker()
+                    .withContexts(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
+                            new ExpanderImpl(step.name)))
+                    .withCallback(BodyExecutionCallback.wrap(getContext()))
+                    .withDisplayName(step.name)
+                    .start();
             return false;
         }
         getContext().get(TaskListener.class).getLogger().println(Messages.StageStepExecution_non_block_mode_deprecated());
@@ -338,6 +345,18 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             waitingBuild = null;
         }
     }
+
+    private static final class ExpanderImpl extends EnvironmentExpander {
+        private static final long serialVersionUID = 1;
+        private final String stageName;
+        private ExpanderImpl(String stageName) {
+            this.stageName = stageName;
+        }
+        @Override public void expand(EnvVars env) throws IOException, InterruptedException {
+            env.override("STAGE_NAME", stageName);
+        }
+    }
+
 
     @Extension
     public static final class Listener extends RunListener<Run<?,?>> {

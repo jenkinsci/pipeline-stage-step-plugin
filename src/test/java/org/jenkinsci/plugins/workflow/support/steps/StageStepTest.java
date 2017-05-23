@@ -67,6 +67,19 @@ public class StageStepTest {
         });
     }
 
+    @Issue("JENKINS-44456")
+    @Test public void stageNameInEnv() throws Exception {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("stage('foo-stage') {echo \"STAGE_NAME is ${STAGE_NAME}\"}", true));
+                WorkflowRun b = story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
+                story.j.assertLogContains("STAGE_NAME is foo-stage", b);
+                story.j.assertLogNotContains(Messages.StageStepExecution_non_block_mode_deprecated(), b);
+            }
+        });
+    }
+
     @Test public void basics() throws Exception {
         // Timeline (A has concurrency 2, B 1):
         // #1 o-A--------------B-----------------o
