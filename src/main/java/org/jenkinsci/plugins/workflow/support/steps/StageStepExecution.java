@@ -13,6 +13,7 @@ import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             }
             getContext().newBodyInvoker()
                     .withContexts(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
-                            new ExpanderImpl(step.name)))
+                            EnvironmentExpander.constant(Collections.singletonMap("STAGE_NAME", step.name))))
                     .withCallback(BodyExecutionCallback.wrap(getContext()))
                     .withDisplayName(step.name)
                     .start();
@@ -345,19 +346,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             waitingBuild = null;
         }
     }
-
-    private static final class ExpanderImpl extends EnvironmentExpander {
-        private static final long serialVersionUID = 1;
-        private final String stageName;
-        private ExpanderImpl(String stageName) {
-            this.stageName = stageName;
-        }
-        @Override public void expand(EnvVars env) throws IOException, InterruptedException {
-            env.override("STAGE_NAME", stageName);
-        }
-    }
-
-
+    
     @Extension
     public static final class Listener extends RunListener<Run<?,?>> {
         @Override public void onCompleted(Run<?,?> r, TaskListener listener) {
