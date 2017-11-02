@@ -69,6 +69,9 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             }
             getContext().newBodyInvoker()
                     .withContexts(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
+                            // NOTE: Other plugins should not be pulling from the environment to determine stage name.
+                            // Use FlowNode.getEnclosingBlocks to get a list of enclosing blocks, innermost first, and
+                            // look for the stage there.
                             EnvironmentExpander.constant(Collections.singletonMap("STAGE_NAME", step.name))))
                     .withCallback(BodyExecutionCallback.wrap(getContext()))
                     .withDisplayName(step.name)
