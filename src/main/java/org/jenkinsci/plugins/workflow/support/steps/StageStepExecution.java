@@ -2,7 +2,6 @@ package org.jenkinsci.plugins.workflow.support.steps;
 
 import com.google.inject.Inject;
 import hudson.AbortException;
-import hudson.EnvVars;
 import hudson.Extension;
 import hudson.XmlFile;
 import hudson.model.InvisibleAction;
@@ -105,12 +104,6 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             assert parents.size() == 1;
             n = parents.get(0);
         }
-    }
-
-    @Override
-    public void stop(Throwable cause) throws Exception {
-        // TODO
-        throw new UnsupportedOperationException();
     }
 
     private static XmlFile getConfigFile() throws IOException {
