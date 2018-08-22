@@ -5,22 +5,12 @@ import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.XmlFile;
-import hudson.model.InvisibleAction;
-import hudson.model.Job;
-import hudson.model.Result;
-import hudson.model.Run;
-import hudson.model.TaskListener;
+import hudson.model.*;
 import hudson.model.listeners.RunListener;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.logging.Level;
 import static java.util.logging.Level.WARNING;
 import java.util.logging.Logger;
@@ -47,26 +37,38 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     private static final Logger LOGGER = Logger.getLogger(StageStepExecution.class.getName());
 
     // only used during the start() call, so no need to be persisted
-    @Inject(optional=true) private transient StageStep step;
-    @StepContextParameter private transient Run<?,?> run;
-    @StepContextParameter private transient FlowNode node;
+    @Inject(optional = true)
+    private transient StageStep step;
+    @StepContextParameter
+    private transient Run<?, ?> run;
+    @StepContextParameter
+    private transient FlowNode node;
 
     private static final class StageActionImpl extends InvisibleAction implements StageAction {
         private final String stageName;
+
         StageActionImpl(String stageName) {
             this.stageName = stageName;
         }
-        @Override public String getStageName() {
+
+        @Override
+        public String getStageName() {
             return stageName;
         }
     }
 
     @Override
     public boolean start() throws Exception {
+
+        if (canSkipStage()) {
+            skipStage();
+        }
+
         if (getContext().hasBody()) { // recommended mode
             if (step.concurrency != null) {
                 throw new AbortException(Messages.StageStepExecution_concurrency_not_supported_in_block_mode());
             }
+
             getContext().newBodyInvoker()
                     .withContexts(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
                             // NOTE: Other plugins should not be pulling from the environment to determine stage name.
@@ -76,6 +78,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
                     .withCallback(BodyExecutionCallback.wrap(getContext()))
                     .withDisplayName(step.name)
                     .start();
+
             return false;
         }
         getContext().get(TaskListener.class).getLogger().println(Messages.StageStepExecution_non_block_mode_deprecated());
@@ -84,6 +87,8 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         }
         node.addAction(new LabelAction(step.name));
         node.addAction(new StageActionImpl(step.name));
+
+        //getContext().setResult(Result.SUCCESS);
         enter(run, getContext(), step.name, step.concurrency);
         return false; // execute asynchronously
     }
@@ -122,7 +127,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     }
 
     // TODO can this be replaced with StepExecutionIterator?
-    private static Map<String,Map<String,Stage>> stagesByNameByJob;
+    private static Map<String, Map<String, Stage>> stagesByNameByJob;
 
     // TODO or delete and make this an instance field in DescriptorImpl
     public static void clear() {
@@ -132,11 +137,11 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     @SuppressWarnings("unchecked")
     private static synchronized void load() {
         if (stagesByNameByJob == null) {
-            stagesByNameByJob = new TreeMap<String,Map<String,Stage>>();
+            stagesByNameByJob = new TreeMap<String, Map<String, Stage>>();
             try {
                 XmlFile configFile = getConfigFile();
                 if (configFile.exists()) {
-                    stagesByNameByJob = (Map<String,Map<String,Stage>>) configFile.read();
+                    stagesByNameByJob = (Map<String, Map<String, Stage>>) configFile.read();
                 }
             } catch (IOException x) {
                 LOGGER.log(WARNING, null, x);
@@ -154,15 +159,15 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         LOGGER.log(Level.FINE, "save: {0}", stagesByNameByJob);
     }
 
-    private static synchronized void enter(Run<?,?> r, StepContext context, String name, Integer concurrency) {
-        LOGGER.log(Level.FINE, "enter {0} {1}", new Object[] {r, name});
+    private static synchronized void enter(Run<?, ?> r, StepContext context, String name, Integer concurrency) {
+        LOGGER.log(Level.FINE, "enter {0} {1}", new Object[]{r, name});
         println(context, "Entering stage " + name);
         load();
-        Job<?,?> job = r.getParent();
+        Job<?, ?> job = r.getParent();
         String jobName = job.getFullName();
-        Map<String,Stage> stagesByName = stagesByNameByJob.get(jobName);
+        Map<String, Stage> stagesByName = stagesByNameByJob.get(jobName);
         if (stagesByName == null) {
-            stagesByName = new TreeMap<String,Stage>();
+            stagesByName = new TreeMap<String, Stage>();
             stagesByNameByJob.put(jobName, stagesByName);
         }
         Stage stage = stagesByName.get(name);
@@ -194,7 +199,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
                 throw new IllegalStateException("the same flow is trying to reënter the stage " + name); // see 'e' with two dots, that's Jesse Glick for you! - KK
             }
         }
-        for (Map.Entry<String,Stage> entry : stagesByName.entrySet()) {
+        for (Map.Entry<String, Stage> entry : stagesByName.entrySet()) {
             if (entry.getKey().equals(name)) {
                 continue;
             }
@@ -217,12 +222,12 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         save();
     }
 
-    private static synchronized void exit(Run<?,?> r) {
+    private static synchronized void exit(Run<?, ?> r) {
         load();
-        LOGGER.log(Level.FINE, "exit {0}: {1}", new Object[] {r, stagesByNameByJob});
-        Job<?,?> job = r.getParent();
+        LOGGER.log(Level.FINE, "exit {0}: {1}", new Object[]{r, stagesByNameByJob});
+        Job<?, ?> job = r.getParent();
         String jobName = job.getFullName();
-        Map<String,Stage> stagesByName = stagesByNameByJob.get(jobName);
+        Map<String, Stage> stagesByName = stagesByNameByJob.get(jobName);
         if (stagesByName == null) {
             return;
         }
@@ -242,19 +247,19 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         }
     }
 
-    private static void cleanUp(Job<?,?> job, String jobName) {
-        Map<String,Stage> stagesByName = stagesByNameByJob.get(jobName);
+    private static void cleanUp(Job<?, ?> job, String jobName) {
+        Map<String, Stage> stagesByName = stagesByNameByJob.get(jobName);
         assert stagesByName != null;
-        Iterator<Entry<String,Stage>> it = stagesByName.entrySet().iterator();
+        Iterator<Entry<String, Stage>> it = stagesByName.entrySet().iterator();
         while (it.hasNext()) {
-            Map.Entry<String,Stage> entry = it.next();
+            Map.Entry<String, Stage> entry = it.next();
             Set<Integer> holding = entry.getValue().holding;
             Iterator<Integer> it2 = holding.iterator();
             while (it2.hasNext()) {
                 Integer number = it2.next();
                 if (job.getBuildByNumber(number) == null) {
                     // Deleted at some point but did not properly clean up from exit(…).
-                    LOGGER.log(WARNING, "Cleaning up apparently deleted {0}#{1}", new Object[] {jobName, number});
+                    LOGGER.log(WARNING, "Cleaning up apparently deleted {0}#{1}", new Object[]{jobName, number});
                     it2.remove();
                 }
             }
@@ -270,7 +275,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
     private static void println(StepContext context, String message) {
         if (!context.isReady()) {
-            LOGGER.log(Level.FINE, "cannot print message ‘{0}’ to dead {1}", new Object[] {message, context});
+            LOGGER.log(Level.FINE, "cannot print message ‘{0}’ to dead {1}", new Object[]{message, context});
             return;
         }
         try {
@@ -287,7 +292,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             println(newer, "Canceling older " + context.get(Run.class).getDisplayName());
             context.onFailure(new FlowInterruptedException(Result.NOT_BUILT, new CanceledCause(newer.get(Run.class))));
         } else {
-            LOGGER.log(WARNING, "cannot cancel dead {0} or {1}", new Object[] {context, newer});
+            LOGGER.log(WARNING, "cannot cancel dead {0} or {1}", new Object[]{context, newer});
         }
     }
 
@@ -300,36 +305,50 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
         private final String newerBuild;
 
-        CanceledCause(Run<?,?> newerBuild) {
+        CanceledCause(Run<?, ?> newerBuild) {
             this.newerBuild = newerBuild.getExternalizableId();
         }
 
-        public Run<?,?> getNewerBuild() {
+        public Run<?, ?> getNewerBuild() {
             return Run.fromExternalizableId(newerBuild);
         }
 
-        @Override public String getShortDescription() {
+        @Override
+        public String getShortDescription() {
             return "Superseded by " + getNewerBuild().getDisplayName();
         }
 
     }
 
     private static final class Stage {
-        /** Numbers of builds currently running in this stage. */
+        /**
+         * Numbers of builds currently running in this stage.
+         */
         final Set<Integer> holding = new TreeSet<Integer>();
-        /** Maximum permitted size of {@link #holding}, or null for unbounded. */
+        /**
+         * Maximum permitted size of {@link #holding}, or null for unbounded.
+         */
         @CheckForNull
         Integer concurrency;
-        /** Context of the build currently waiting to enter this stage, if any. */
-        @CheckForNull StepContext waitingContext;
-        /** Number of the build corresponding to {@link #waitingContext}, if any. */
+        /**
+         * Context of the build currently waiting to enter this stage, if any.
+         */
+        @CheckForNull
+        StepContext waitingContext;
+        /**
+         * Number of the build corresponding to {@link #waitingContext}, if any.
+         */
         @Nullable
         Integer waitingBuild;
-        @Override public String toString() {
+
+        @Override
+        public String toString() {
             return "Stage[holding=" + holding + ",waitingBuild=" + waitingBuild + ",concurrency=" + concurrency + "]";
         }
+
         /**
          * Unblocks the build currently waiting.
+         *
          * @param message a message to print to the log of the unblocked build
          */
         void unblock(String message) {
@@ -337,7 +356,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             assert waitingContext != null : message;
             assert waitingBuild != null : message;
             if (holding.contains(waitingBuild)) {
-                LOGGER.log(WARNING, "{0}: {1} already in {2}", new Object[] {message, waitingBuild, holding});
+                LOGGER.log(WARNING, "{0}: {1} already in {2}", new Object[]{message, waitingBuild, holding});
             }
             /* Not necessarily true, since a later build could reduce the concurrency of an existing stage; could perhaps adjust semantics to skip unblocking in this special case:
             assert concurrency == null || holding.size() < concurrency;
@@ -349,10 +368,11 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             waitingBuild = null;
         }
     }
-    
+
     @Extension
-    public static final class Listener extends RunListener<Run<?,?>> {
-        @Override public void onCompleted(Run<?,?> r, TaskListener listener) {
+    public static final class Listener extends RunListener<Run<?, ?>> {
+        @Override
+        public void onCompleted(Run<?, ?> r, TaskListener listener) {
             if (!(r instanceof FlowExecutionOwner.Executable) || ((FlowExecutionOwner.Executable) r).asFlowExecutionOwner() == null) {
                 return;
             }
@@ -362,4 +382,30 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
     private static final long serialVersionUID = 1L;
 
+    public boolean canSkipStage() {
+        Job<?, ?> job = run.getParent();
+        String jobName = job.getFullName();
+
+        String path = System.getenv("JENKINS_HOME") + "/workspace/" + jobName + "@checkpoint";
+        File dir = new File(path);
+
+        if (!dir.exists()) {
+            return false;
+        }
+
+        for (File file : dir.listFiles()) {
+            if (file.getName().equals(step.name))
+                return true;
+        }
+        return false;
+    }
+
+    private boolean skipStage() {
+            enter(run, getContext(), step.name, step.concurrency);
+            exit(run);
+            println(getContext(), "Skipping stage " + step.name);
+            return false;
+    }
 }
+
+
