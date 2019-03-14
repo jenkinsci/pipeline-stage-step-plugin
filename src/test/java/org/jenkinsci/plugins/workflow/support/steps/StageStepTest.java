@@ -25,11 +25,22 @@
 package org.jenkinsci.plugins.workflow.support.steps;
 
 import hudson.model.Result;
+import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nonnull;
 import jenkins.model.CauseOfInterruption;
 import jenkins.model.InterruptedBuildAction;
+import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.workflow.actions.LabelAction;
+import org.jenkinsci.plugins.workflow.actions.StageAction;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
+import org.jenkinsci.plugins.workflow.flow.FlowExecution;
+import org.jenkinsci.plugins.workflow.flow.FlowExecutionListener;
+import org.jenkinsci.plugins.workflow.flow.GraphListener;
+import org.jenkinsci.plugins.workflow.graph.AtomNode;
+import org.jenkinsci.plugins.workflow.graph.BlockStartNode;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.steps.stage.Messages;
@@ -43,6 +54,7 @@ import org.junit.runners.model.Statement;
 import org.jvnet.hudson.test.BuildWatcher;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.RestartableJenkinsRule;
+import org.jvnet.hudson.test.TestExtension;
 
 public class StageStepTest {
 
@@ -284,6 +296,60 @@ public class StageStepTest {
                 story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
             }
         });
+    }
+
+    @Test public void labelAndStageActionsForBlock() throws Exception {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("stage('foo-stage') {echo \"bar\"}", true));
+                WorkflowRun b = story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
+                NodeCollector collector = NodeCollector.get();
+                FlowNode stageNode = NodeCollector.get().nodes.get(0);
+                assertTrue(stageNode instanceof BlockStartNode);
+                StageAction stageAction = stageNode.getAction(StageAction.class);
+                assertNotNull(stageAction);
+                assertEquals("foo-stage", stageAction.getStageName());
+                LabelAction labelAction = stageNode.getAction(LabelAction.class);
+                assertNotNull(labelAction);
+                assertEquals("foo-stage", labelAction.getDisplayName());
+            }
+        });
+    }
+
+    @Test public void labelAndStageActionsForAtom() throws Exception {
+        story.addStep(new Statement() {
+            @Override public void evaluate() throws Throwable {
+                WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
+                p.setDefinition(new CpsFlowDefinition("stage 'foo-stage';", true));
+                WorkflowRun b = story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
+                NodeCollector collector = NodeCollector.get();
+                FlowNode stageNode = NodeCollector.get().nodes.get(0);
+                assertTrue(stageNode instanceof AtomNode);
+                StageAction stageAction = stageNode.getAction(StageAction.class);
+                assertNotNull(stageAction);
+                assertEquals("foo-stage", stageAction.getStageName());
+                LabelAction labelAction = stageNode.getAction(LabelAction.class);
+                assertNotNull(labelAction);
+                assertEquals("foo-stage", labelAction.getDisplayName());
+            }
+        });
+    }
+
+    @TestExtension({"labelAndStageActionsForBlock", "labelAndStageActionsForAtom"})
+    public static class NodeCollector extends FlowExecutionListener {
+        List<FlowNode> nodes = new ArrayList<>();
+        public void onRunning(@Nonnull FlowExecution execution) {
+            execution.addListener(new GraphListener() {
+                @Override
+                public void onNewHead(FlowNode node) {
+                    nodes.add(node);
+                }
+            });
+        }
+        static NodeCollector get() {
+            return Jenkins.getActiveInstance().getExtensionList(FlowExecutionListener.class).get(NodeCollector.class);
+        }
     }
 
 }

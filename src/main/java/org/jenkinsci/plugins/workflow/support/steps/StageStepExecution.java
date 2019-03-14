@@ -62,6 +62,8 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
     @Override
     public boolean start() throws Exception {
+        node.addAction(new LabelAction(step.name));
+        node.addAction(new StageActionImpl(step.name));
         if (getContext().hasBody()) { // recommended mode
             if (step.concurrency != null) {
                 throw new AbortException(Messages.StageStepExecution_concurrency_not_supported_in_block_mode());
@@ -81,8 +83,6 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         if (isInsideParallel(node)) {
             throw new AbortException(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a());
         }
-        node.addAction(new LabelAction(step.name));
-        node.addAction(new StageActionImpl(step.name));
         enter(run, getContext(), step.name, step.concurrency);
         return false; // execute asynchronously
     }
