@@ -99,7 +99,7 @@ public class StageStepTest {
                         "stage(name: 'B', concurrency: 1);\n" +
                         "echo('in B');\n" +
                         "semaphore('X');\n" +
-                        "echo('done')"));
+                        "echo('done')", true));
                 WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
                 CpsFlowExecution e1 = (CpsFlowExecution) b1.getExecutionPromise().get();
                 e1.waitForSuspension();
@@ -206,7 +206,7 @@ public class StageStepTest {
                         "  node {\n" +
                         "    echo 'in finally'\n" +
                         "  }\n" +
-                        "}"));
+                        "}", true));
                 WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
                 SemaphoreStep.waitForStart("serializability/1", b1);
                 WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
@@ -234,7 +234,7 @@ public class StageStepTest {
                         "semaphore 'holdingAfterUnblockA'\n" +
                         "stage name: 'B', concurrency: 1\n" +
                         "semaphore 'holdingAfterUnblockB'\n" +
-                        ""));
+                        "", true));
                 WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
                 SemaphoreStep.waitForStart("holdingAfterUnblockA/1", b1); // about to leave A
                 WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
@@ -256,7 +256,7 @@ public class StageStepTest {
                 p.setDefinition(new CpsFlowDefinition(
                         "stage name: 'A', concurrency: 1\n" +
                         "semaphore 'holdingAfterExitUnblock'\n" +
-                        ""));
+                        "", true));
                 WorkflowRun b1 = p.scheduleBuild2(0).waitForStart();
                 SemaphoreStep.waitForStart("holdingAfterExitUnblock/1", b1); // about to leave
                 WorkflowRun b2 = p.scheduleBuild2(0).waitForStart();
@@ -274,13 +274,13 @@ public class StageStepTest {
         story.addStep(new Statement() {
             @Override public void evaluate() throws Throwable {
                 WorkflowJob p = story.j.jenkins.createProject(WorkflowJob.class, "p");
-                p.setDefinition(new CpsFlowDefinition("stage 'one'; parallel one: {}, two: {}; stage 'two'"));
+                p.setDefinition(new CpsFlowDefinition("stage 'one'; parallel one: {}, two: {}; stage 'two'", true));
                 story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
-                p.setDefinition(new CpsFlowDefinition("parallel one: {stage 'one'}, two: {stage 'two'}"));
+                p.setDefinition(new CpsFlowDefinition("parallel one: {stage 'one'}, two: {stage 'two'}", true));
                 story.j.assertLogContains(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a(), story.j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
-                p.setDefinition(new CpsFlowDefinition("parallel x: {node {echo 'ok'; dir('subdir') {stage 'oops'}}}"));
+                p.setDefinition(new CpsFlowDefinition("parallel x: {node {echo 'ok'; dir('subdir') {stage 'oops'}}}", true));
                 story.j.assertLogContains(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a(), story.j.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0).get()));
-                p.setDefinition(new CpsFlowDefinition("node {echo 'ok'; stage 'one'}; node {echo 'still ok'; stage 'two'}"));
+                p.setDefinition(new CpsFlowDefinition("node {echo 'ok'; stage 'one'}; node {echo 'still ok'; stage 'two'}", true));
                 story.j.assertBuildStatusSuccess(p.scheduleBuild2(0));
             }
         });
