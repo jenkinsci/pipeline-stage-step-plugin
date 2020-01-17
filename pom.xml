@@ -12,7 +12,7 @@
     <version>2.4-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>Pipeline: Stage Step</name>
-    <url>https://wiki.jenkins.io/display/JENKINS/Pipeline+Stage+Step+Plugin</url>
+    <url>https://github.com/jenkinsci/pipeline-stage-step-plugin</url>
     <licenses>
         <license>
             <name>MIT License</name>
