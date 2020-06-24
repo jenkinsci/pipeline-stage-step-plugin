@@ -1,5 +1,9 @@
 ## Changelog
 
+### Newer versions
+
+See [GitHub Releases](https://github.com/jenkinsci/pipeline-stage-step-plugin/releases).
+
 ### 2.3 
 
 Release date: 2017-11-02
