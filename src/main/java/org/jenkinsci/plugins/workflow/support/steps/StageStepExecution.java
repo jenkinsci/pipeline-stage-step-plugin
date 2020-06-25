@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.workflow.support.steps;
 
-import com.google.inject.Inject;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.XmlFile;
@@ -39,16 +38,18 @@ import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
-import org.jenkinsci.plugins.workflow.steps.StepContextParameter;
 import org.jenkinsci.plugins.workflow.support.steps.stage.Messages;
 
 public class StageStepExecution extends AbstractStepExecutionImpl {
     private static final Logger LOGGER = Logger.getLogger(StageStepExecution.class.getName());
 
     // only used during the start() call, so no need to be persisted
-    @Inject(optional=true) private transient StageStep step;
-    @StepContextParameter private transient Run<?,?> run;
-    @StepContextParameter private transient FlowNode node;
+    private transient final StageStep step;
+
+    StageStepExecution(StepContext context, StageStep step) {
+        super(context);
+        this.step = step;
+    }
 
     private static final class StageActionImpl extends InvisibleAction implements StageAction {
         private final String stageName;
@@ -78,12 +79,13 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             return false;
         }
         getContext().get(TaskListener.class).getLogger().println(Messages.StageStepExecution_non_block_mode_deprecated());
+        FlowNode node = getContext().get(FlowNode.class);
         if (isInsideParallel(node)) {
             throw new AbortException(Messages.StageStepExecution_the_stage_step_must_not_be_used_inside_a());
         }
         node.addAction(new LabelAction(step.name));
         node.addAction(new StageActionImpl(step.name));
-        enter(run, getContext(), step.name, step.concurrency);
+        enter(getContext(), step.name, step.concurrency);
         return false; // execute asynchronously
     }
 
@@ -107,9 +109,9 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     }
 
     private static XmlFile getConfigFile() throws IOException {
-        Jenkins j = Jenkins.getInstance();
+        Jenkins j = Jenkins.getInstanceOrNull();
         if (j == null) {
-            throw new IOException("Jenkins is not running"); // do not use Jenkins.getActiveInstance() as that is an ISE
+            throw new IOException("Jenkins is not running");
         }
         return new XmlFile(new File(j.getRootDir(), StageStep.class.getName() + ".xml"));
     }
@@ -125,7 +127,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     @SuppressWarnings("unchecked")
     private static synchronized void load() {
         if (stagesByNameByJob == null) {
-            stagesByNameByJob = new TreeMap<String,Map<String,Stage>>();
+            stagesByNameByJob = new TreeMap<>();
             try {
                 XmlFile configFile = getConfigFile();
                 if (configFile.exists()) {
@@ -147,7 +149,8 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         LOGGER.log(Level.FINE, "save: {0}", stagesByNameByJob);
     }
 
-    private static synchronized void enter(Run<?,?> r, StepContext context, String name, Integer concurrency) {
+    private static synchronized void enter(StepContext context, String name, Integer concurrency) throws IOException, InterruptedException {
+        Run<?,?> r = context.get(Run.class);
         LOGGER.log(Level.FINE, "enter {0} {1}", new Object[] {r, name});
         println(context, "Entering stage " + name);
         load();
@@ -155,7 +158,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         String jobName = job.getFullName();
         Map<String,Stage> stagesByName = stagesByNameByJob.get(jobName);
         if (stagesByName == null) {
-            stagesByName = new TreeMap<String,Stage>();
+            stagesByName = new TreeMap<>();
             stagesByNameByJob.put(jobName, stagesByName);
         }
         Stage stage = stagesByName.get(name);
@@ -309,7 +312,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
     private static final class Stage {
         /** Numbers of builds currently running in this stage. */
-        final Set<Integer> holding = new TreeSet<Integer>();
+        final Set<Integer> holding = new TreeSet<>();
         /** Maximum permitted size of {@link #holding}, or null for unbounded. */
         @CheckForNull
         Integer concurrency;
