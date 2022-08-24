@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>4.40</version>
+        <version>4.46</version>
         <relativePath />
     </parent>
     <groupId>org.jenkins-ci.plugins</groupId>
@@ -39,15 +39,15 @@
     </pluginRepositories>
     <properties>
         <changelist>999999-SNAPSHOT</changelist>
-        <jenkins.version>2.289.1</jenkins.version>
+        <jenkins.version>2.346.1</jenkins.version>
         <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>
     </properties>
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>io.jenkins.tools.bom</groupId>
-                <artifactId>bom-2.289.x</artifactId>
-                <version>1289.v5c4b_1c43511b_</version>
+                <artifactId>bom-2.346.x</artifactId>
+                <version>1595.v8c71c13cc3a_9</version>
                 <scope>import</scope>
                 <type>pom</type>
             </dependency>
@@ -71,6 +71,8 @@
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-support</artifactId>
+<!--            TODO until in bom-->
+            <version>838.va_3a_087b_4055b</version>
             <classifier>tests</classifier>
             <scope>test</scope>
         </dependency>
