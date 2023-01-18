@@ -1,8 +1,11 @@
 package org.jenkinsci.plugins.workflow.support.steps;
 
 import hudson.AbortException;
+import hudson.model.InvisibleAction;
+import hudson.model.Run;
 import java.util.Collections;
 import java.util.logging.Logger;
+import jenkins.model.CauseOfInterruption;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
@@ -18,6 +21,18 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     StageStepExecution(StepContext context, StageStep step) {
         super(context);
         this.step = step;
+    }
+
+    /** @deprecated only to be able to load old builds */
+    @Deprecated
+    private static final class StageActionImpl extends InvisibleAction implements org.jenkinsci.plugins.workflow.actions.StageAction {
+        private final String stageName;
+        private StageActionImpl() {
+            throw new AssertionError("no longer constructed");
+        }
+        @Override public String getStageName() {
+            return stageName;
+        }
     }
 
     @SuppressWarnings("deprecation")
@@ -39,6 +54,28 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
             return false;
         }
         throw new AbortException(Messages.StageStepExecution_non_block_mode_deprecated());
+    }
+
+    /** @deprecated only to be able to load old builds */
+    @Deprecated
+    public static final class CanceledCause extends CauseOfInterruption {
+
+        private static final long serialVersionUID = 1;
+
+        private final String newerBuild;
+
+        private CanceledCause() {
+            throw new AssertionError("no longer constructed");
+        }
+
+        public Run<?,?> getNewerBuild() {
+            return Run.fromExternalizableId(newerBuild);
+        }
+
+        @Override public String getShortDescription() {
+            return "Superseded by " + getNewerBuild().getDisplayName();
+        }
+
     }
 
     private static final long serialVersionUID = 1L;
