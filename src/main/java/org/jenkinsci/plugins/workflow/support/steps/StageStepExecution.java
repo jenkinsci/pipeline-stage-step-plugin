@@ -1,5 +1,6 @@
 package org.jenkinsci.plugins.workflow.support.steps;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.model.InvisibleAction;
 import hudson.model.Run;
@@ -26,6 +27,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     /** @deprecated only to be able to load old builds */
     @Deprecated
     private static final class StageActionImpl extends InvisibleAction implements org.jenkinsci.plugins.workflow.actions.StageAction {
+        @SuppressFBWarnings(value = "UWF_UNWRITTEN_FIELD", justification = "correct")
         private final String stageName;
         private StageActionImpl() {
             throw new AssertionError("no longer constructed");
@@ -62,6 +64,7 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
 
         private static final long serialVersionUID = 1;
 
+        @SuppressFBWarnings(value = "UWF_UNWRITTEN_FIELD", justification = "correct")
         private final String newerBuild;
 
         private CanceledCause() {
