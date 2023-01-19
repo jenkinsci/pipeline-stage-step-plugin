@@ -24,10 +24,12 @@
 
 package org.jenkinsci.plugins.workflow.support.steps;
 
+import com.google.common.collect.ImmutableSet;
 import hudson.Extension;
 import java.util.Set;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
-import java.util.Collections;
+import hudson.model.TaskListener;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
@@ -71,7 +73,7 @@ public final class StageStep extends Step {
         }
 
         @Override public Set<? extends Class<?>> getRequiredContext() {
-            return Collections.emptySet();
+            return ImmutableSet.of(TaskListener.class, FlowNode.class);
         }
 
     }

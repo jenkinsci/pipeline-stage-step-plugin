@@ -4,9 +4,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.AbortException;
 import hudson.model.InvisibleAction;
 import hudson.model.Run;
+import hudson.model.TaskListener;
 import java.util.Collections;
 import java.util.logging.Logger;
 import jenkins.model.CauseOfInterruption;
+import org.jenkinsci.plugins.workflow.actions.LabelAction;
+import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.AbstractStepExecutionImpl;
 import org.jenkinsci.plugins.workflow.steps.BodyExecutionCallback;
 import org.jenkinsci.plugins.workflow.steps.EnvironmentExpander;
@@ -24,13 +27,12 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
         this.step = step;
     }
 
-    /** @deprecated only to be able to load old builds */
+    /** @deprecated only to be able to load old builds, and for a deprecated run mode */
     @Deprecated
     private static final class StageActionImpl extends InvisibleAction implements org.jenkinsci.plugins.workflow.actions.StageAction {
-        @SuppressFBWarnings(value = "UWF_UNWRITTEN_FIELD", justification = "correct")
         private final String stageName;
-        private StageActionImpl() {
-            throw new AssertionError("no longer constructed");
+        StageActionImpl(String stageName) {
+            this.stageName = stageName;
         }
         @Override public String getStageName() {
             return stageName;
@@ -40,10 +42,10 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
     @SuppressWarnings("deprecation")
     @Override
     public boolean start() throws Exception {
+        if (step.concurrency != null) {
+            throw new AbortException(Messages.StageStepExecution_concurrency_not_supported());
+        }
         if (getContext().hasBody()) { // recommended mode
-            if (step.concurrency != null) {
-                throw new AbortException(Messages.StageStepExecution_concurrency_not_supported_in_block_mode());
-            }
             getContext().newBodyInvoker()
                     .withContexts(EnvironmentExpander.merge(getContext().get(EnvironmentExpander.class),
                             // NOTE: Other plugins should not be pulling from the environment to determine stage name.
@@ -55,7 +57,12 @@ public class StageStepExecution extends AbstractStepExecutionImpl {
                     .start();
             return false;
         }
-        throw new AbortException(Messages.StageStepExecution_non_block_mode_deprecated());
+        getContext().get(TaskListener.class).getLogger().println(Messages.StageStepExecution_non_block_mode_deprecated());
+        FlowNode node = getContext().get(FlowNode.class);
+        node.addAction(new LabelAction(step.name));
+        node.addAction(new StageActionImpl(step.name));
+        getContext().onSuccess(null);
+        return true;
     }
 
     /** @deprecated only to be able to load old builds */

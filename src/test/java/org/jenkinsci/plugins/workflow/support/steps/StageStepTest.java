@@ -24,6 +24,7 @@
 
 package org.jenkinsci.plugins.workflow.support.steps;
 
+import hudson.model.Result;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -57,6 +58,16 @@ public class StageStepTest {
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
         r.assertLogContains("STAGE_NAME is foo-stage", b);
         r.assertLogNotContains(Messages.StageStepExecution_non_block_mode_deprecated(), b);
+    }
+
+    @Test public void deprecatedModes() throws Exception {
+        WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
+        p.setDefinition(new CpsFlowDefinition("stage(name: 'x', concurrency: 1) {}", true));
+        r.assertLogContains(Messages.StageStepExecution_concurrency_not_supported(), r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0)));
+        p.setDefinition(new CpsFlowDefinition("stage name: 'x', concurrency: 1", true));
+        r.assertLogContains(Messages.StageStepExecution_concurrency_not_supported(), r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0)));
+        p.setDefinition(new CpsFlowDefinition("stage 'x'", true));
+        r.assertLogContains(Messages.StageStepExecution_non_block_mode_deprecated(), r.buildAndAssertSuccess(p));
     }
 
 }
