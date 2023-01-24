@@ -26,10 +26,9 @@ package org.jenkinsci.plugins.workflow.support.steps;
 
 import com.google.common.collect.ImmutableSet;
 import hudson.Extension;
-import hudson.model.Run;
-import hudson.model.TaskListener;
 import java.util.Set;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
+import hudson.model.TaskListener;
 import org.jenkinsci.plugins.workflow.graph.FlowNode;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
@@ -40,15 +39,12 @@ import org.kohsuke.stapler.DataBoundSetter;
 
 /**
  * A named block.
- * <p>Former (deprecated) behavior:
- * Marks a flow build as entering a gated “stage”, like a stage in a pipeline.
- * Each job has a set of named stages, each of which acts like a semaphore with an initial permit count,
- * but with the special behavior that only one build may be waiting at any time: the newest.
- * Credit goes to @jtnord for implementing the {@code block} operator in {@code buildflow-extensions}, which inspired this.
  */
 public final class StageStep extends Step {
 
     public final String name;
+
+    @Deprecated
     @DataBoundSetter public @CheckForNull Integer concurrency;
 
     @DataBoundConstructor public StageStep(String name) {
@@ -77,7 +73,7 @@ public final class StageStep extends Step {
         }
 
         @Override public Set<? extends Class<?>> getRequiredContext() {
-            return ImmutableSet.of(TaskListener.class, Run.class, FlowNode.class);
+            return ImmutableSet.of(TaskListener.class, FlowNode.class);
         }
 
     }
