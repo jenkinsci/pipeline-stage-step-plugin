@@ -29,20 +29,31 @@ import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.jenkinsci.plugins.workflow.support.steps.stage.Messages;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.jvnet.hudson.test.BuildWatcher;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.Issue;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.jvnet.hudson.test.junit.jupiter.BuildWatcherExtension;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-public class StageStepTest {
+@WithJenkins
+class StageStepTest {
 
-    @ClassRule public static BuildWatcher buildWatcher = new BuildWatcher();
-    @Rule public JenkinsRule r = new JenkinsRule();
+    @SuppressWarnings("unused")
+    @RegisterExtension
+    private static final BuildWatcherExtension BUILD_WATCHER = new BuildWatcherExtension();
+
+    private JenkinsRule r;
+
+    @BeforeEach
+    void beforeEach(JenkinsRule rule) {
+        r = rule;
+    }
 
     @Issue("JENKINS-26107")
-    @Test public void blockMode() throws Exception {
+    @Test
+    void blockMode() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("stage('hello there') {echo 'yes I ran'}", true));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
@@ -52,7 +63,8 @@ public class StageStepTest {
     }
 
     @Issue("JENKINS-44456")
-    @Test public void stageNameInEnv() throws Exception {
+    @Test
+    void stageNameInEnv() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("stage('foo-stage') {echo \"STAGE_NAME is ${STAGE_NAME}\"}", true));
         WorkflowRun b = r.assertBuildStatusSuccess(p.scheduleBuild2(0));
@@ -60,7 +72,8 @@ public class StageStepTest {
         r.assertLogNotContains(Messages.StageStepExecution_non_block_mode_deprecated(), b);
     }
 
-    @Test public void deprecatedModes() throws Exception {
+    @Test
+    void deprecatedModes() throws Exception {
         WorkflowJob p = r.jenkins.createProject(WorkflowJob.class, "p");
         p.setDefinition(new CpsFlowDefinition("stage(name: 'x', concurrency: 1) {}", true));
         r.assertLogContains(Messages.StageStepExecution_concurrency_not_supported(), r.assertBuildStatus(Result.FAILURE, p.scheduleBuild2(0)));
@@ -69,5 +82,4 @@ public class StageStepTest {
         p.setDefinition(new CpsFlowDefinition("stage 'x'", true));
         r.assertLogContains(Messages.StageStepExecution_non_block_mode_deprecated(), r.buildAndAssertSuccess(p));
     }
-
 }
